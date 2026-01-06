@@ -1,0 +1,22 @@
+{
+  "name": "cms_image_upload",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "codegen": " npx playwright codegen",
+    "test": "npx playwright test",
+    "report": "npx playwright show-report",
+    "sim-purchase": "npx playwright test tests/01-sim-purchase-journey.spec.js",
+    "sim-replacement": "npx playwright test tests/02-sim-replacement-journey.spec.js",
+    "e2e:sequence": "npm-run-all --serial --continue-on-error landing login logged-in-user-order-journey non-logged-in-user-order-journey"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.3.1",
+    "npm-run-all": "^4.1.5"
+  },
+  "dependencies": {
+    "dayjs": "^1.11.19"
+  }
+}

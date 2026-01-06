@@ -1,0 +1,128 @@
+import { test, expect } from '@playwright/test';
+import dayjs from 'dayjs';
+import customParseFormat from 'dayjs/plugin/customParseFormat'
+dayjs.extend(customParseFormat)
+
+const BASE_URL = process.env.BASE_URL ??
+  'https://webapp-dev.ryze.live/st';
+
+const TOKEN = process.env.AUTH_TOKEN ??
+'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiIiLCJpYXQiOjE3Njc2MDUwMDEsImV4cCI6MTc3MDI4MzQwMSwiZGF0YSI6eyJpZCI6MjAsImZpcnN0X25hbWUiOiIiLCJsYXN0X25hbWUiOm51bGwsImVtYWlsIjoiIiwicGhvbmUiOiIwMTkzMjM4MjgxMCIsInNlY29uZGFyeV9tb2JpbGUiOm51bGwsImRpc3RyaWN0IjpudWxsLCJhcmVhIjpudWxsLCJwb3N0X2NvZGUiOm51bGwsImFkZHJlc3MiOm51bGwsImdlbmRlciI6bnVsbCwiYXZhdGFyIjoiaHR0cDovL3dlYmFwcC1hcGktZGV2LnJ5emUubGl2ZS9zdG9yYWdlIiwiaXNfZW1haWxfdmVyaWZpZWQiOjAsImlzX3Bob25lX3ZlcmlmaWVkIjowLCJlbWFpbF92ZXJpZmllZF9hdCI6bnVsbCwicGhvbmVfdmVyaWZpZWRfYXQiOm51bGwsInBhc3N3b3JkX2NoYW5nZWRfYXQiOm51bGwsInN0YXR1cyI6MSwidXBkYXRlZF9ieSI6bnVsbCwiY3JlYXRlZF9hdCI6IjIwMjQtMDktMjFUMjM6MzY6MzcuMDAwMDAwWiIsInVwZGF0ZWRfYXQiOiIyMDI0LTA5LTIxVDIzOjM2OjM3LjAwMDAwMFoifX0.henR_gxUUJ3iYzeIVHHk6xTE-wWgr1_6TZGemxxbLms';
+
+test('Physical SIM purchase journey', async ({ page, request }) => {
+  await test.step('Open application', async () => {
+    await page.goto(`${BASE_URL}?token=${TOKEN}`);
+    await expect(page).toHaveURL(/st\?token=/);
+  });
+
+  await test.step('Sim Type Selection Page', async () => {
+    await expect(page.getByRole('heading', { name: 'RYZE SIM' })).toHaveText('RYZE SIM');
+    //await expect(page.getByText('Select your preferred RYZE', { exact: true })).toBeVisible();
+    await page.getByText('Recommended Option', { exact: true }).click();
+    await page.getByRole('button', { name: /choose sim number/i }).click();
+  });
+
+  await test.step('Number Selection Page', async () => {
+    await expect((await request.get(`https://webapp-api-dev.ryze.live/api/v1/st-number/inventory-list?page_size=500&page_number=1&status=available&number_postfix=01663`)).status()).toBe(200);
+    const response = await request.get('https://webapp-api-dev.ryze.live/api/v1/st-number/inventory-list?page_size=10&page_number=1&status=available');
+    const body = await response.json();
+    const myNumber = body.data[4].number;
+    const lastFiveDigits = myNumber.slice(-5);
+    await page.getByRole('textbox', { name: 'Enter last 5 digits' }).fill(lastFiveDigits);
+    await page.getByRole('img').nth(2).click();
+    await page.locator(`:has-text("${lastFiveDigits}")`);
+    await page.getByText(myNumber).click();
+    await page.getByRole('button', { name: 'Continue with this number' }).click();
+  });
+
+  await test.step('Product Cart Page', async () => {
+    await page.getByRole('button', { name: 'Next' }).click();
+  });
+
+  await test.step('Personal Information Page', async () => {
+    await page.getByRole('textbox', { name: 'Name' }).fill("Test User");
+    await page.getByRole('textbox', { name: 'Contact Number' }).fill("01911675645");
+    await page.getByRole('textbox', { name: 'Email' }).fill("test@example.com");
+    const finalDate= dayjs().add(3, 'day').format('YYYY-MM-DD')
+    await page.getByRole('textbox', { name: 'Select date' }).click();
+    await page.getByRole('textbox', { name: 'Select date' }).fill(finalDate);
+    await page.getByRole('textbox', { name: finalDate }).press('Enter');
+    await page.getByRole('button', { name: 'Next' }).click();
+  });
+
+  await test.step('Shipping Information Page', async () => {
+    await page.getByRole('textbox', { name: 'Address' }).click();
+    await page.getByRole('textbox', { name: 'Address' }).fill("Test Address");
+    await page.getByRole('combobox', { name: 'City / District' }).click();
+    await page.getByText('Chattogram').nth(1).click();
+    await page.getByRole('combobox', { name: 'Thana' }).click();
+    await page.getByText('Anwara').nth(1).click();
+    await page.getByRole('textbox', { name: 'Post Code' }).fill('1100');
+    await page.getByRole('button', { name: 'Check out' }).click();
+  });
+
+  await test.step('Paywall Page', async () => {
+    await page.locator('div').filter({ hasText: /^Cash on DeliveryPay cash on delivery with our service$/ }).first().click();
+    await page.getByTestId('pay-now').click();
+    await expect(page.getByRole('heading', { name: 'Order Confirmed' })).toHaveText('Order Confirmed');
+  });
+
+});
+
+test('e-SIM purchase journey', async ({ page }) => {
+ await test.step('Open application', async () => {
+    await page.goto(`${BASE_URL}?token=${TOKEN}`);
+    await expect(page).toHaveURL(/st\?token=/);
+  });
+
+  await test.step('Sim Type Selection Page', async () => {
+    await expect(page.getByRole('heading', { name: 'RYZE SIM' })).toHaveText('RYZE SIM');
+    await page.locator('label').filter({ hasText: 'e-SIMActivate the e-SIM and' }).click();
+    await page.getByRole('button', { name: /choose sim number/i }).click();
+  }); 
+
+  await test.step('Number Selection Page', async () => {
+    await expect((await request.get(`https://webapp-api-dev.ryze.live/api/v1/st-number/inventory-list?page_size=500&page_number=1&status=available&number_postfix=01663`)).status()).toBe(200);
+    const response = await request.get('https://webapp-api-dev.ryze.live/api/v1/st-number/inventory-list?page_size=10&page_number=1&status=available');
+    const body = await response.json();
+    const myNumber = body.data[4].number;
+    const lastFiveDigits = myNumber.slice(-5);
+    await page.getByRole('textbox', { name: 'Enter last 5 digits' }).fill(lastFiveDigits);
+    await page.getByRole('img').nth(2).click();
+    await page.locator(`:has-text("${lastFiveDigits}")`);
+    await page.getByText(myNumber).click();
+    await page.getByRole('button', { name: 'Continue with this number' }).click();
+  });
+
+  await test.step('Product Cart Page', async () => {
+    await page.getByRole('button', { name: 'Next' }).click();
+  });
+
+  await test.step('Personal Information Page', async () => {
+    await page.getByRole('textbox', { name: 'Name' }).fill("Test User");
+    await page.getByRole('textbox', { name: 'Contact Number' }).fill("01911675645");
+    await page.getByRole('textbox', { name: 'Email' }).fill("test@example.com");
+    const finalDate= dayjs().add(3, 'day').format('YYYY-MM-DD')
+    await page.getByRole('textbox', { name: 'Select date' }).click();
+    await page.getByRole('textbox', { name: 'Select date' }).fill(finalDate);
+    await page.getByRole('textbox', { name: finalDate }).press('Enter');
+    await page.getByRole('button', { name: 'Next' }).click();
+  });
+
+  await test.step('Shipping Information Page', async () => {
+    await page.getByRole('textbox', { name: 'Address' }).click();
+    await page.getByRole('textbox', { name: 'Address' }).fill("Test Address");
+    await page.getByRole('combobox', { name: 'City / District' }).click();
+    await page.getByText('Chattogram').nth(1).click();
+    await page.getByRole('combobox', { name: 'Thana' }).click();
+    await page.getByText('Anwara').nth(1).click();
+    await page.getByRole('textbox', { name: 'Post Code' }).fill('1100');
+    await page.getByRole('button', { name: 'Check out' }).click();
+  });
+
+  await test.step('Paywall Page', async () => {
+    await page.locator('div').filter({ hasText: /^Cash on DeliveryPay cash on delivery with our service$/ }).first().click();
+    await page.getByTestId('pay-now').click();
+    await expect(page.getByRole('heading', { name: 'Order Confirmed' })).toHaveText('Order Confirmed');
+  });
+});
